@@ -1,34 +1,13 @@
-FROM node:20.11-bullseye AS build
-
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install
-
-# Copy application files
+RUN npm install -g pnpm
 COPY . .
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm run build
 
-# Generate prisma client and build the application
-RUN npx prisma generate
-RUN npm run build
-
-# Runtime stage
-FROM node:20.11-alpine as runtime
-
+FROM node:20-alpine
 WORKDIR /app
-
-RUN apk update && \
-    apk add --no-cache openssl && \
-    rm -rf /var/cache/apk/*
-
-# Copy built files from the build stage
-COPY --from=build /app .
-
-# Install only runtime dependencies
-RUN npm install --only=production
-
+RUN npm install -g pnpm
+COPY --from=builder /app ./
 EXPOSE 3000
-
-ENTRYPOINT [ "node", "./dist/index.js" ]
-CMD ["start"]
+CMD ["pnpm", "start"]
